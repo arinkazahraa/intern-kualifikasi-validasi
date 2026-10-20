@@ -1300,15 +1300,15 @@
         }
 
         function deleteValidation(id) {
-            if (confirm("Hapus data validasi ini?")) {
-                validations = validations.filter(item => item.id !== id);
-                if (window.db) {
-                    window.deleteDoc(window.doc(window.db, "validations", String(id))).catch(e => console.error(e));
-                }
-                syncValidationToCloud();
-                renderValidationTable();
-            }
+    if (confirm("Hapus data validasi ini?")) {
+        validations = validations.filter(item => item.id !== id);
+        if (window.db) {
+            window.deleteDoc(window.doc(window.db, "validations", String(id))).catch(e => console.error(e));
         }
+        syncValidationToCloud();
+        renderValidationTable();
+    }
+}
 
         function openValStagesModal(valId) {
             const val = validations.find(item => item.id === valId);
