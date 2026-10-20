@@ -950,10 +950,6 @@
             } catch(e) { console.error(e); }
         }
 
-        window.onload = function() {
-            // Dijalankan setelah initCloudData selesai dipanggil oleh modul firebase
-        };
-
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -980,7 +976,6 @@
             
             const now = new Date();
             const currentYearStr = String(now.getFullYear());
-            const currentMonthIdx = now.getMonth();
 
             if (tabId === 'dashboard') {
                 renderDashboard();
