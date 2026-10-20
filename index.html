@@ -55,7 +55,7 @@
 
             <div class="p-4 bg-red-900/60 border-t border-red-700 text-xs text-red-200 text-center">
                 <p class="font-semibold text-white">Sistem Kontrol Internal</p>
-                <p class="mt-0.5">Aturan Re-Kualifikasi 5 Tahun Aktif</p>
+                <p class="mt-0.5">Cloud Terhubung (Firebase)</p>
             </div>
         </aside>
 
@@ -89,7 +89,7 @@
                     <div class="bg-gradient-to-r from-red-700 to-red-900 text-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h3 class="text-xl font-bold">Selamat Datang di Sistem Kontrol Internal Kualifikasi & Validasi</h3>
-                            <p class="text-red-100 text-sm mt-1 max-w-2xl text-justify">Kelola jadwal re-kualifikasi alat 5 tahunan, validasi proses dan bahan, serta agenda PMI & PME secara terpadu dalam satu tempat.</p>
+                            <p class="text-red-100 text-sm mt-1 max-w-2xl text-justify">Kelola jadwal re-kualifikasi alat 5 tahunan, validasi proses dan bahan, serta agenda PMI & PME secara terpadu dengan sinkronisasi cloud real-time.</p>
                         </div>
                     </div>
 
@@ -674,6 +674,35 @@
         </div>
     </div>
 
+    <!-- Firebase SDK (Modular v10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxIpKWJtdgwS5n9E9DUY_hr2QtrQ2CQrc",
+            authDomain: "internal-kualifikasi-validasi.firebaseapp.com",
+            projectId: "internal-kualifikasi-validasi",
+            storageBucket: "internal-kualifikasi-validasi.appspot.com",
+            messagingSenderId: "326912349071",
+            appId: "1:326912349071:web:7eb6969b69f547a0a331fa",
+            measurementId: "G-ZTSCRC4N87"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        window.db = db;
+        window.getDocs = getDocs;
+        window.collection = collection;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.deleteDoc = deleteDoc;
+        window.updateDoc = updateDoc;
+
+        // Inisialisasi data cloud setelah firebase siap
+        initCloudData();
+    </script>
+
     <!-- SCRIPT APLIKASI KONTROL UTAMA -->
     <script>
         function formatDateID(dateString) {
@@ -726,7 +755,7 @@
                 startDate: "2026-10-01", deadlineDate: "2026-10-25",
                 boxes: [
                     { 
-                        date: "2026-10-02", quality: "Baik / Utuh", temp: "4.2 °C", boxCode: "BOX-01", examType: "Immunoserologi", runningTool: "Abbott / Alinity i (Ai04128/SCM04986/KSO PT.Abbot Product Indonesia)",
+                        date: "2026-10-02", quality: "Baik / Utuh", temp: "4.2 °C", boxCode: "BOX-01", examType: "Immunoserologi", runningTool: "Abbot / Alinity i (Ai04128/SCM04986/KSO PT.Abbot Product Indonesia)",
                         samples: {
                             hiv: [{ code: "HIV-01", result: "Reaktif" }, { code: "HIV-02", result: "Non-Reaktif" }],
                             hcv: [{ code: "HCV-01", result: "Non-Reaktif" }],
@@ -746,9 +775,9 @@
             "Mindray / CL-6000i (BB3-41003310/KSO PT Mitra Bahagia Citra Medika)"
         ];
 
-        let equipments = JSON.parse(localStorage.getItem('utd_equipments')) || defaultEquipments;
-        let validations = JSON.parse(localStorage.getItem('utd_validations')) || defaultValidations;
-        let pmeData = JSON.parse(localStorage.getItem('utd_pme_schedule_v17')) || defaultPMEData;
+        let equipments = [];
+        let validations = [];
+        let pmeData = [];
         
         const standardPMITemplate = {
             0: [
@@ -813,22 +842,116 @@
             ]
         };
 
-        let pmiData = JSON.parse(localStorage.getItem('utd_pmi_v3')) || {
+        let pmiData = {
             "2025": JSON.parse(JSON.stringify(standardPMITemplate)),
             "2026": JSON.parse(JSON.stringify(standardPMITemplate)),
             "2027": JSON.parse(JSON.stringify(standardPMITemplate))
         };
-        localStorage.setItem('utd_pmi_v3', JSON.stringify(pmiData));
 
         let currentRoomFilter = 'ALL';
 
-        window.onload = function() {
+        async function initCloudData() {
+            try {
+                // Ambil data equipments
+                const eqSnap = await window.getDocs(window.collection(window.db, "equipments"));
+                if (eqSnap.empty) {
+                    equipments = defaultEquipments;
+                    for (let eq of equipments) {
+                        await window.setDoc(window.doc(window.db, "equipments", String(eq.id)), eq);
+                    }
+                } else {
+                    equipments = [];
+                    eqSnap.forEach(d => equipments.push(d.data()));
+                }
+
+                // Ambil data validations
+                const valSnap = await window.getDocs(window.collection(window.db, "validations"));
+                if (valSnap.empty) {
+                    validations = defaultValidations;
+                    for (let val of validations) {
+                        await window.setDoc(window.doc(window.db, "validations", String(val.id)), val);
+                    }
+                } else {
+                    validations = [];
+                    valSnap.forEach(d => validations.push(d.data()));
+                }
+
+                // Ambil data pme
+                const pmeSnap = await window.getDocs(window.collection(window.db, "pmeData"));
+                if (pmeSnap.empty) {
+                    pmeData = defaultPMEData;
+                    for (let pme of pmeData) {
+                        await window.setDoc(window.doc(window.db, "pmeData", String(pme.id)), pme);
+                    }
+                } else {
+                    pmeData = [];
+                    pmeSnap.forEach(d => pmeData.push(d.data()));
+                }
+
+                // Ambil data pmi
+                const pmiDoc = await window.getDocs(window.collection(window.db, "pmiDataStore"));
+                if (!pmiDoc.empty) {
+                    pmiDoc.forEach(d => {
+                        if (d.id === "main") pmiData = d.data().content;
+                    });
+                } else {
+                    await window.setDoc(window.doc(window.db, "pmiDataStore", "main"), { content: pmiData });
+                }
+
+            } catch (err) {
+                console.log("Menggunakan fallback lokal:", err);
+                equipments = JSON.parse(localStorage.getItem('utd_equipments')) || defaultEquipments;
+                validations = JSON.parse(localStorage.getItem('utd_validations')) || defaultValidations;
+                pmeData = JSON.parse(localStorage.getItem('utd_pme_schedule_v17')) || defaultPMEData;
+            }
+
             switchTab('dashboard');
             renderDashboard();
             renderEquipmentTable();
             renderValidationTable();
             renderPMIChecklist();
             renderPMETable();
+        }
+
+        async function syncEquipmentToCloud() {
+            localStorage.setItem('utd_equipments', JSON.stringify(equipments));
+            if (!window.db) return;
+            try {
+                for (let eq of equipments) {
+                    await window.setDoc(window.doc(window.db, "equipments", String(eq.id)), eq);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function syncValidationToCloud() {
+            localStorage.setItem('utd_validations', JSON.stringify(validations));
+            if (!window.db) return;
+            try {
+                for (let val of validations) {
+                    await window.setDoc(window.doc(window.db, "validations", String(val.id)), val);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function syncPMEToCloud() {
+            localStorage.setItem('utd_pme_schedule_v17', JSON.stringify(pmeData));
+            if (!window.db) return;
+            try {
+                for (let pme of pmeData) {
+                    await window.setDoc(window.doc(window.db, "pmeData", String(pme.id)), pme);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function syncPMIToCloud() {
+            if (!window.db) return;
+            try {
+                await window.setDoc(window.doc(window.db, "pmiDataStore", "main"), { content: pmiData });
+            } catch(e) { console.error(e); }
+        }
+
+        window.onload = function() {
+            // Dijalankan setelah initCloudData selesai dipanggil oleh modul firebase
         };
 
         function switchTab(tabId) {
@@ -867,17 +990,6 @@
                     pmiYearSel.value = currentYearStr;
                 }
                 renderPMIChecklist();
-                
-                setTimeout(() => {
-                    const currentMonthCard = document.getElementById(`pmi-month-card-${currentMonthIdx}`);
-                    if (currentMonthCard) {
-                        currentMonthCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        currentMonthCard.classList.add('ring-2', 'ring-red-600', 'shadow-lg');
-                        setTimeout(() => {
-                            currentMonthCard.classList.remove('ring-2', 'ring-red-600', 'shadow-lg');
-                        }, 3000);
-                    }
-                }, 100);
             } else if (tabId === 'pme') {
                 const pmeYearSel = document.getElementById('pme-year-select');
                 if (pmeYearSel && Array.from(pmeYearSel.options).some(o => o.value === currentYearStr)) {
@@ -1187,7 +1299,7 @@
                 validations.push(data);
             }
             
-            localStorage.setItem('utd_validations', JSON.stringify(validations));
+            syncValidationToCloud();
             closeValidationModal();
             renderValidationTable();
         }
@@ -1195,7 +1307,10 @@
         function deleteValidation(id) {
             if (confirm("Hapus data validasi ini?")) {
                 validations = validations.filter(item => item.id !== id);
-                localStorage.setItem('utd_validations', JSON.stringify(validations));
+                if (window.db) {
+                    window.deleteDoc(window.doc(window.db, "validations", String(id))).catch(e => console.error(e));
+                }
+                syncValidationToCloud();
                 renderValidationTable();
             }
         }
@@ -1256,7 +1371,7 @@
                 };
             });
 
-            localStorage.setItem('utd_validations', JSON.stringify(validations));
+            syncValidationToCloud();
             closeValStagesModal();
             renderValidationTable();
         }
@@ -1320,7 +1435,7 @@
                 equipments.push(data);
             }
 
-            localStorage.setItem('utd_equipments', JSON.stringify(equipments));
+            syncEquipmentToCloud();
             closeEquipmentModal();
             renderEquipmentTable();
             renderDashboard();
@@ -1329,7 +1444,10 @@
         function deleteEquipment(id) {
             if (confirm("Hapus data alat medis ini?")) {
                 equipments = equipments.filter(item => item.id !== id);
-                localStorage.setItem('utd_equipments', JSON.stringify(equipments));
+                if (window.db) {
+                    window.deleteDoc(window.doc(window.db, "equipments", String(id))).catch(e => console.error(e));
+                }
+                syncEquipmentToCloud();
                 renderEquipmentTable();
                 renderDashboard();
             }
@@ -1385,7 +1503,7 @@
                     date: document.getElementById(`stage_date_${stage.key}`).value
                 };
             });
-            localStorage.setItem('utd_equipments', JSON.stringify(equipments));
+            syncEquipmentToCloud();
             closeQualificationModal();
             renderEquipmentTable();
         }
@@ -1400,7 +1518,6 @@
             
             if (!pmiData[year] || Object.keys(pmiData[year]).length === 0) {
                 pmiData[year] = JSON.parse(JSON.stringify(standardPMITemplate));
-                localStorage.setItem('utd_pmi_v3', JSON.stringify(pmiData));
             }
 
             const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -1481,7 +1598,7 @@
             if (!pmiData[year]) pmiData[year] = {};
             if (!pmiData[year][monthIndex]) return;
             pmiData[year][monthIndex][sIdx].checked = !pmiData[year][monthIndex][sIdx].checked;
-            localStorage.setItem('utd_pmi_v3', JSON.stringify(pmiData));
+            syncPMIToCloud();
             renderPMIChecklist();
         }
 
@@ -1489,7 +1606,7 @@
             if (!pmiData[year]) pmiData[year] = {};
             if (!pmiData[year][monthIndex]) return;
             pmiData[year][monthIndex][sIdx][field] = value;
-            localStorage.setItem('utd_pmi_v3', JSON.stringify(pmiData));
+            syncPMIToCloud();
         }
 
         // --- PEMANTAPAN MUTU EKSTERNAL (PME) ---
@@ -1931,8 +2048,8 @@
                 });
             }
 
-            localStorage.setItem('utd_pme_schedule_v17', JSON.stringify(pmeData));
-            alert("Data PME lengkap berhasil disimpan!");
+            syncPMEToCloud();
+            alert("Data PME lengkap berhasil disimpan ke Cloud!");
             backToPMEMain();
         }
     </script>
