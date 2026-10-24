@@ -1,1 +1,0 @@
-# intern-kualifikasi-validasi
